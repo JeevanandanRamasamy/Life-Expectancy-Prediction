@@ -1,0 +1,965 @@
+---
+title: "Stat291 Final_Project"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+setwd("C:/Users/anish/Box/Stat Analysis for Data Science/Final Project/")
+getwd()
+library(tidyverse)
+library(gapminder)
+library(countrycode)
+library(moderndive)
+library(caTools)
+
+life_exp_pred_2009 <- read_csv("life_exp_pred.csv")
+glimpse(life_exp_pred_2009)
+
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#### Exploratory Data Analysis and Data Transformation
+```{r}
+
+#life_exp_pred_2009$income
+
+#life_exp_pred_2009$population
+
+#life_exp_pred_2009$country
+
+#life_exp_pred_2009$life_expectancy
+
+#life_exp_pred_2009$babies_per_woman
+
+#life_exp_pred_2009$child_mortality
+
+#life_exp_pred_2009$CO2_emissions_per_person
+
+#life_exp_pred_2009$gdp_per_capita
+
+#life_exp_pred_2009$total_health_spending_per_person
+
+#life_exp_pred_2009$population_density
+
+#life_exp_pred_2009$at_least_basic_water_source
+
+#life_exp_pred_2009$murders
+
+# Should we combine some of the levels? Combine levels and make some new variables?
+max(life_exp_pred_2009$income)
+min(life_exp_pred_2009$income)
+
+life_exp_pred_2009 <- life_exp_pred_2009 %>%
+  mutate(income_level = ifelse(income >=0 & income <= 20000, 1, 
+                               ifelse(income > 20000 & income <= 40000, 2,
+                                      ifelse(income > 40000 & income <= 60000, 3,
+                                             ifelse(income > 60000 & income <= 80000,4,5)))),
+         income2=income^2,
+         lnlife_exp_2009 = log(life_expectancy), 
+         lnincome = log(income),
+         lnbabies_per_woman = log(babies_per_woman),
+         two_babies_per_women = ifelse(babies_per_woman<=2,1,0),
+         lnchild_mortality = log(child_mortality),
+         child_mortality2 = child_mortality^2,
+         lnpopulation = log(population),
+         lnco2_emissions_per_person = log(CO2_emissions_per_person),
+         lngdp_per_capita = log(gdp_per_capita),
+         lntotal_health_spending_per_person = log(total_health_spending_per_person),
+         lnat_least_basic_water_source = log(at_least_basic_water_source),
+         lnpopulation_density = log(population_density),
+         lnmurders = log(murders))
+
+View(life_exp_pred_2009)
+```
+
+#### Boxplot of the indicator variables
+```{r}
+table(life_exp_pred_2009$income_level)
+
+life_exp_pred_2009 %>%
+  ggplot(aes(y = lnlife_exp_2009, fill = as.factor(income_level))) +
+  geom_boxplot()
+
+life_exp_pred_2009%>%
+  ggplot(aes(y = lnlife_exp_2009, fill = as.factor(two_babies_per_women))) +
+  geom_boxplot()
+
+
+```
+
+#### Influential Points or Erroneous Records?
+#### Does not look like there is any concerning data 
+```{r}
+life_exp_pred_2009 %>% arrange(desc(life_expectancy)) %>% head(n=5)
+life_exp_pred_2009 %>% arrange(desc(income)) %>% head(n=5)
+life_exp_pred_2009 %>% arrange(desc(babies_per_woman)) %>% head(n=5)
+life_exp_pred_2009 %>% arrange(desc(child_mortality)) %>% head(n=5)
+life_exp_pred_2009 %>% arrange(desc(CO2_emissions_per_person)) %>% head(n=5)
+life_exp_pred_2009 %>% arrange(desc(gdp_per_capita)) %>% head(n=5)
+life_exp_pred_2009 %>% arrange(desc(total_health_spending_per_person)) %>% head(n=5)
+
+
+```
+#### Correlation matrix of the variables 
+#### Looks like some of the variables are highly correlated like:
+#### 1. child mortality and babies per women
+#### 2. income and babies per women
+#### 3. gdp per capita and income
+#### 4. total_health_spending_per_person and income
+
+```{r}
+cor(life_exp_pred_2009[, c('population', 'income', 'babies_per_woman', 'child_mortality', 
+    'CO2_emissions_per_person', 'gdp_per_capita', 'total_health_spending_per_person', 
+    'population_density', 'at_least_basic_water_source', 'murders')])
+```
+
+
+#### After analysis variables to be used in Model 1(All): lnincome,lnbabies_per_woman,lnchild_mortality,lnpopulation, lnco2_emissions_per_person, lngdp_per_capita,lntotal_health_spending_per_person,lnpopulation_density,lnat_least_basic_water_source, lnmurders
+
+#### Model 2(All variables that are significant and have a linear relationship with life expectancy): lnincome,lnbabies_per_woman,lnchild_mortality,lnco2_emissions_per_person, lngdp_per_capita,lntotal_health_spending_per_person
+
+#### Dropping lnpopulation, lnpopulation_density,lnat_least_basic_water_source and lnmurders from model2 because:
+#### Population does not seem to be significant with or without log
+#### Population Density is significant but the scatterplot does not show any clear linear relationship.
+#### At Least Basic Water Source is significant with no clear linear relationship
+#### p value not significant without log for Murders but significant with log and there is no clear linear relationship after log transformation.
+
+#### Categorical Variables: Country,Population,
+#### Continuous Variables: life_expectancy, Income, babies_per_woman, child_mortality, CO2_emissions_per_person, gdp_per_capita,total_health_spending_per_person, population_density, at_least_basic_water_source, murders 
+
+#### Income looks like a good predictor of life expectancy with or without log.
+#### Analysis of life expectancy vs income without log
+#### The histogram of residual of the income vs life expectancy is left-skewed
+#### The residual plot is cone shaped and constant variance is violated.
+```{r}
+life_exp_pred_2009 %>%
+  ggplot(aes(x = life_expectancy)) +
+  geom_histogram(color = "white")
+
+life_exp_pred_2009 %>%
+  ggplot(aes(x = income)) +
+  geom_histogram(color = "white")
+
+life_exp_pred_2009 %>%
+  ggplot(aes(income, life_expectancy)) +
+  geom_point() +
+  ggtitle("Life Expectancy vs Income")
+
+model_1 <- lm(data = life_exp_pred_2009, life_expectancy ~ income)
+get_regression_table(model_1)
+
+points <- get_regression_points(model_1)
+glimpse(points)
+
+points %>%
+  ggplot(aes(x = residual)) +
+  geom_histogram(color = "white")
+
+points %>%
+  ggplot(aes(x = life_expectancy_hat, y = residual)) +
+  geom_point()
+```
+
+#### Analysis of log life expectancy vs log income and log life expectancy vs higher order term of income(income2)
+#### It can be concluded that log life expectancy vs log income is better as the residual plot is no longer cone shaped and the residual histogram is more normal. Also scatterplot of the log income  vs log of life expenctancy shows a linear relationship.
+#### Log transformation will make long tail disappear 
+#### After log tranformation residual histogram is less left-skewed. The residual plot is no longer cone shaped.
+
+```{r}
+life_exp_pred_2009 %>%
+  ggplot(aes(x = lnlife_exp_2009)) +
+  geom_histogram(color = "white")
+
+life_exp_pred_2009 %>%
+  ggplot(aes(x = lnincome)) +
+  geom_histogram(color = "white")
+
+life_exp_pred_2009 %>%
+  ggplot(aes(lnincome, lnlife_exp_2009)) +
+  geom_point() +
+  ggtitle("Log Life Expectancy vs Log Income")
+
+model_2 <- lm(data = life_exp_pred_2009, lnlife_exp_2009 ~ lnincome)
+get_regression_table(model_2)
+
+points <- get_regression_points(model_2)
+glimpse(points)
+
+points %>%
+  ggplot(aes(x = residual)) +
+  geom_histogram(color = "white")
+
+points %>%
+  ggplot(aes(x = lnlife_exp_2009_hat, y = residual)) +
+  geom_point()
+
+
+```
+#### Life Expectancy vs income2
+```{r}
+life_exp_pred_2009 %>%
+  ggplot(aes(x = lnlife_exp_2009)) +
+  geom_histogram(color = "white")
+
+life_exp_pred_2009 %>%
+  ggplot(aes(x = income2)) +
+  geom_histogram(color = "white")
+
+life_exp_pred_2009 %>%
+  ggplot(aes(income2, lnlife_exp_2009)) +
+  geom_point() +
+  ggtitle("Log Life Expectancy vs Income 2")
+
+model_2 <- lm(data = life_exp_pred_2009, lnlife_exp_2009 ~ income2)
+get_regression_table(model_2)
+
+points <- get_regression_points(model_2)
+glimpse(points)
+
+points %>%
+  ggplot(aes(x = residual)) +
+  geom_histogram(color = "white")
+
+points %>%
+  ggplot(aes(x = lnlife_exp_2009_hat, y = residual)) +
+  geom_point()
+```
+
+
+
+
+#### Population does not seem to be significant with or without log
+#### Life Expectancy vs Population without Log
+```{r}
+life_exp_pred_2009 %>%
+  ggplot(aes(x = life_expectancy)) +
+  geom_histogram(color = "white")
+
+life_exp_pred_2009 %>%
+  ggplot(aes(x = population)) +
+  geom_histogram(color = "white")
+
+life_exp_pred_2009 %>%
+  ggplot(aes(population, life_expectancy)) +
+  geom_point() +
+  ggtitle("Life Expectancy vs Population")
+
+model_3 <- lm(data = life_exp_pred_2009, life_expectancy ~ population)
+get_regression_table(model_3)
+
+points <- get_regression_points(model_3)
+glimpse(points)
+
+points %>%
+  ggplot(aes(x = residual)) +
+  geom_histogram(color = "white")
+
+points %>%
+  ggplot(aes(x = life_expectancy_hat, y = residual)) +
+  geom_point()
+```
+#### Life Expectancy vs Population with log
+
+
+```{r}
+life_exp_pred_2009 %>%
+  ggplot(aes(x = lnlife_exp_2009)) +
+  geom_histogram(color = "white")
+
+life_exp_pred_2009 %>%
+  ggplot(aes(x = lnpopulation)) +
+  geom_histogram(color = "white")
+
+life_exp_pred_2009 %>%
+  ggplot(aes(lnpopulation, lnlife_exp_2009)) +
+  geom_point() +
+  ggtitle("Log Life Expectancy vs Log Population")
+
+model_4 <- lm(data = life_exp_pred_2009, lnlife_exp_2009 ~ lnpopulation)
+get_regression_table(model_4)
+
+points <- get_regression_points(model_4)
+glimpse(points)
+
+points %>%
+  ggplot(aes(x = residual)) +
+  geom_histogram(color = "white")
+
+points %>%
+  ggplot(aes(x = lnlife_exp_2009_hat, y = residual)) +
+  geom_point()
+```
+#### Babies per Woman seems to be a good predictor that is significant for Life Expectancy with or without log. It has a negative relationship with life expectancy.
+#### Life Expectancy vs Babies per Woman without log
+
+```{r}
+life_exp_pred_2009 %>%
+  ggplot(aes(x = life_expectancy)) +
+  geom_histogram(color = "white")
+
+life_exp_pred_2009 %>%
+  ggplot(aes(x = babies_per_woman)) +
+  geom_histogram(color = "white")
+
+life_exp_pred_2009 %>%
+  ggplot(aes(babies_per_woman, life_expectancy)) +
+  geom_point() +
+  ggtitle("Life Expectancy vs Babies per Woman")
+
+model_5 <- lm(data = life_exp_pred_2009, life_expectancy ~ babies_per_woman)
+get_regression_table(model_5)
+
+points <- get_regression_points(model_5)
+glimpse(points)
+
+points %>%
+  ggplot(aes(x = residual)) +
+  geom_histogram(color = "white")
+
+points %>%
+  ggplot(aes(x = life_expectancy_hat, y = residual)) +
+  geom_point()
+```
+
+#### Life Expectancy vs Babies per Woman with log
+
+```{r}
+life_exp_pred_2009 %>%
+  ggplot(aes(x = lnlife_exp_2009)) +
+  geom_histogram(color = "white")
+
+life_exp_pred_2009 %>%
+  ggplot(aes(x = lnbabies_per_woman)) +
+  geom_histogram(color = "white")
+
+life_exp_pred_2009 %>%
+  ggplot(aes(lnbabies_per_woman, lnlife_exp_2009)) +
+  geom_point() +
+  ggtitle("Log Life Expectancy vs Log Babies per Woman")
+
+model_6 <- lm(data = life_exp_pred_2009, lnlife_exp_2009 ~ lnbabies_per_woman)
+get_regression_table(model_6)
+
+points <- get_regression_points(model_6)
+glimpse(points)
+
+points %>%
+  ggplot(aes(x = residual)) +
+  geom_histogram(color = "white")
+
+points %>%
+  ggplot(aes(x = lnlife_exp_2009_hat, y = residual)) +
+  geom_point()
+```
+##### Child Mortality seems to have a negative relationship with Life Expectancy. Child Mortality seems to be a good predictor that is significant for Life Expectancy with or without log.
+
+#### Life Expectancy vs Child Mortality without log
+
+```{r}
+life_exp_pred_2009 %>%
+  ggplot(aes(x = life_expectancy)) +
+  geom_histogram(color = "white")
+
+life_exp_pred_2009 %>%
+  ggplot(aes(x = child_mortality)) +
+  geom_histogram(color = "white")
+
+life_exp_pred_2009 %>%
+  ggplot(aes(child_mortality, life_expectancy)) +
+  geom_point() +
+  ggtitle("Life Expectancy vs Child Mortality")
+
+model_7 <- lm(data = life_exp_pred_2009, life_expectancy ~ child_mortality)
+get_regression_table(model_7)
+
+points <- get_regression_points(model_7)
+glimpse(points)
+
+points %>%
+  ggplot(aes(x = residual)) +
+  geom_histogram(color = "white")
+
+points %>%
+  ggplot(aes(x = life_expectancy_hat, y = residual)) +
+  geom_point()
+```
+
+#### Life Expectancy vs Child Mortality with log
+
+```{r}
+life_exp_pred_2009 %>%
+  ggplot(aes(x = lnlife_exp_2009)) +
+  geom_histogram(color = "white")
+
+life_exp_pred_2009 %>%
+  ggplot(aes(x = lnchild_mortality)) +
+  geom_histogram(color = "white")
+
+life_exp_pred_2009 %>%
+  ggplot(aes(lnchild_mortality, lnlife_exp_2009)) +
+  geom_point() +
+  ggtitle("Log Life Expectancy vs Log Child Mortality")
+
+model_8 <- lm(data = life_exp_pred_2009, lnlife_exp_2009 ~ lnchild_mortality)
+get_regression_table(model_8)
+
+points <- get_regression_points(model_8)
+glimpse(points)
+
+points %>%
+  ggplot(aes(x = residual)) +
+  geom_histogram(color = "white")
+
+points %>%
+  ggplot(aes(x = lnlife_exp_2009_hat, y = residual)) +
+  geom_point()
+```
+
+#### Log of Life Expectancy vs Child_Mortality2
+```{r}
+life_exp_pred_2009 %>%
+  ggplot(aes(x = lnlife_exp_2009)) +
+  geom_histogram(color = "white")
+
+life_exp_pred_2009 %>%
+  ggplot(aes(x = child_mortality2)) +
+  geom_histogram(color = "white")
+
+life_exp_pred_2009 %>%
+  ggplot(aes(child_mortality2, lnlife_exp_2009)) +
+  geom_point() +
+  ggtitle("Log Life Expectancy vs Log Child Mortality 2")
+
+model_8 <- lm(data = life_exp_pred_2009, lnlife_exp_2009 ~ child_mortality2)
+get_regression_table(model_8)
+
+points <- get_regression_points(model_8)
+glimpse(points)
+
+points %>%
+  ggplot(aes(x = residual)) +
+  geom_histogram(color = "white")
+
+points %>%
+  ggplot(aes(x = lnlife_exp_2009_hat, y = residual)) +
+  geom_point()
+```
+#### CO2 Emissions per Person is significant and shows a positive linear relationship with Life Expectancy after log transformation.
+#### Life Expectancy vs CO2 Emissions per Person without log
+
+```{r}
+life_exp_pred_2009 %>%
+  ggplot(aes(x = life_expectancy)) +
+  geom_histogram(color = "white")
+
+life_exp_pred_2009 %>%
+  ggplot(aes(x = CO2_emissions_per_person)) +
+  geom_histogram(color = "white")
+
+life_exp_pred_2009 %>%
+  ggplot(aes(CO2_emissions_per_person, life_expectancy)) +
+  geom_point() +
+  ggtitle("Life Expectancy vs CO2 Emissions per Person")
+
+model_9 <- lm(data = life_exp_pred_2009, life_expectancy ~ CO2_emissions_per_person)
+get_regression_table(model_9)
+
+points <- get_regression_points(model_9)
+glimpse(points)
+
+points %>%
+  ggplot(aes(x = residual)) +
+  geom_histogram(color = "white")
+
+points %>%
+  ggplot(aes(x = life_expectancy_hat, y = residual)) +
+  geom_point()
+```
+ 
+
+#### Life Expectancy vs CO2 Emissions per Person with log
+
+```{r}
+life_exp_pred_2009 %>%
+  ggplot(aes(x = lnlife_exp_2009)) +
+  geom_histogram(color = "white")
+
+life_exp_pred_2009 %>%
+  ggplot(aes(x = lnco2_emissions_per_person)) +
+  geom_histogram(color = "white")
+
+life_exp_pred_2009 %>%
+  ggplot(aes(lnco2_emissions_per_person, lnlife_exp_2009)) +
+  geom_point() +
+  ggtitle("Log Life Expectancy vs Log CO2 Emissions per Person")
+
+model_10 <- lm(data = life_exp_pred_2009, lnlife_exp_2009 ~ lnco2_emissions_per_person)
+get_regression_table(model_10)
+
+points <- get_regression_points(model_10)
+glimpse(points)
+
+points %>%
+  ggplot(aes(x = residual)) +
+  geom_histogram(color = "white")
+
+points %>%
+  ggplot(aes(x = lnlife_exp_2009_hat, y = residual)) +
+  geom_point()
+```
+#### GDP per Capita is significant and shows a positive linear relationship with Life Expectancy after log transformation.
+
+#### Life Expectancy vs GDP per Capita without log
+
+```{r}
+life_exp_pred_2009 %>%
+  ggplot(aes(x = life_expectancy)) +
+  geom_histogram(color = "white")
+
+life_exp_pred_2009 %>%
+  ggplot(aes(x = gdp_per_capita)) +
+  geom_histogram(color = "white")
+
+life_exp_pred_2009 %>%
+  ggplot(aes(gdp_per_capita, life_expectancy)) +
+  geom_point() +
+  ggtitle("Life Expectancy vs GDP per Capita")
+
+model_11 <- lm(data = life_exp_pred_2009, life_expectancy ~ gdp_per_capita)
+get_regression_table(model_11)
+
+points <- get_regression_points(model_11)
+glimpse(points)
+
+points %>%
+  ggplot(aes(x = residual)) +
+  geom_histogram(color = "white")
+
+points %>%
+  ggplot(aes(x = life_expectancy_hat, y = residual)) +
+  geom_point()
+```
+
+#### Life Expectancy vs GDP per Capita with log
+
+```{r}
+log_life_expectancy_2009_5 <- life_exp_pred_2009 %>%
+  mutate(lnlife_exp_2009 = log(life_expectancy), lngdp_per_capita = log(gdp_per_capita))
+glimpse(log_life_expectancy_2009_5)
+
+log_life_expectancy_2009_5 %>%
+  ggplot(aes(x = lnlife_exp_2009)) +
+  geom_histogram(color = "white")
+
+log_life_expectancy_2009_5 %>%
+  ggplot(aes(x = lngdp_per_capita)) +
+  geom_histogram(color = "white")
+
+log_life_expectancy_2009_5 %>%
+  ggplot(aes(lngdp_per_capita, lnlife_exp_2009)) +
+  geom_point() +
+  ggtitle("Log Life Expectancy vs Log Gdp per Capita")
+
+model_12 <- lm(data = log_life_expectancy_2009_5, lnlife_exp_2009 ~ lngdp_per_capita)
+get_regression_table(model_12)
+
+points <- get_regression_points(model_12)
+glimpse(points)
+
+points %>%
+  ggplot(aes(x = residual)) +
+  geom_histogram(color = "white")
+
+points %>%
+  ggplot(aes(x = lnlife_exp_2009_hat, y = residual)) +
+  geom_point()
+```
+#### Total Health Spending per Person is significant and shows a positive linear relationship with Life Expectancy after log transformation.
+
+#### Life Expectancy vs Total Health Spending per Person without log
+
+```{r}
+life_exp_pred_2009 %>%
+  ggplot(aes(x = life_expectancy)) +
+  geom_histogram(color = "white")
+
+life_exp_pred_2009 %>%
+  ggplot(aes(x = total_health_spending_per_person)) +
+  geom_histogram(color = "white")
+
+life_exp_pred_2009 %>%
+  ggplot(aes(total_health_spending_per_person, life_expectancy)) +
+  geom_point() +
+  ggtitle("Life Expectancy vs Total Health Spending per Person")
+
+model_13 <- lm(data = life_exp_pred_2009, life_expectancy ~ total_health_spending_per_person)
+get_regression_table(model_13)
+
+points <- get_regression_points(model_13)
+glimpse(points)
+
+points %>%
+  ggplot(aes(x = residual)) +
+  geom_histogram(color = "white")
+
+points %>%
+  ggplot(aes(x = life_expectancy_hat, y = residual)) +
+  geom_point()
+```
+
+#### Life Expectancy vs Total Health Spending per Person with log
+
+```{r}
+life_exp_pred_2009 %>%
+  ggplot(aes(x = lnlife_exp_2009)) +
+  geom_histogram(color = "white")
+
+life_exp_pred_2009 %>%
+  ggplot(aes(x = lntotal_health_spending_per_person)) +
+  geom_histogram(color = "white")
+
+life_exp_pred_2009 %>%
+  ggplot(aes(lntotal_health_spending_per_person, lnlife_exp_2009)) +
+  geom_point() +
+  ggtitle("Log Life Expectancy vs Log Total Health Spending per Person")
+
+model_14 <- lm(data = life_exp_pred_2009, lnlife_exp_2009 ~ lntotal_health_spending_per_person)
+get_regression_table(model_14)
+
+points <- get_regression_points(model_14)
+glimpse(points)
+
+points %>%
+  ggplot(aes(x = residual)) +
+  geom_histogram(color = "white")
+
+points %>%
+  ggplot(aes(x = lnlife_exp_2009_hat, y = residual)) +
+  geom_point()
+```
+#### Population Density is significant but the scatterplot does not show any clear linear relationship.
+
+#### Life Expectancy vs Population Density without log
+
+```{r}
+life_exp_pred_2009 %>%
+  ggplot(aes(x = life_expectancy)) +
+  geom_histogram(color = "white")
+
+life_exp_pred_2009 %>%
+  ggplot(aes(x = population_density)) +
+  geom_histogram(color = "white")
+
+life_exp_pred_2009 %>%
+  ggplot(aes(population_density, life_expectancy)) +
+  geom_point() +
+  ggtitle("Life Expectancy vs Population Density")
+
+model_15 <- lm(data = life_exp_pred_2009, life_expectancy ~ population_density)
+get_regression_table(model_15)
+
+points <- get_regression_points(model_15)
+glimpse(points)
+
+points %>%
+  ggplot(aes(x = residual)) +
+  geom_histogram(color = "white")
+
+points %>%
+  ggplot(aes(x = life_expectancy_hat, y = residual)) +
+  geom_point()
+```
+
+#### Life Expectancy vs Population Density with log
+
+```{r}
+life_exp_pred_2009 %>%
+  ggplot(aes(x = lnlife_exp_2009)) +
+  geom_histogram(color = "white")
+
+life_exp_pred_2009 %>%
+  ggplot(aes(x = lnpopulation_density)) +
+  geom_histogram(color = "white")
+
+life_exp_pred_2009 %>%
+  ggplot(aes(lnpopulation_density, lnlife_exp_2009)) +
+  geom_point() +
+  ggtitle("Log Life Expectancy vs Log Population Density")
+
+model_16 <- lm(data = life_exp_pred_2009, lnlife_exp_2009 ~ lnpopulation_density)
+get_regression_table(model_16)
+
+points <- get_regression_points(model_16)
+glimpse(points)
+
+points %>%
+  ggplot(aes(x = residual)) +
+  geom_histogram(color = "white")
+
+points %>%
+  ggplot(aes(x = lnlife_exp_2009_hat, y = residual)) +
+  geom_point()
+```
+#### At Least Basic Water Source is significant with no clear linear relationship
+
+#### Life Expectancy vs At Least Basic Water Source without log
+
+```{r}
+life_exp_pred_2009 %>%
+  ggplot(aes(x = life_expectancy)) +
+  geom_histogram(color = "white")
+
+life_exp_pred_2009 %>%
+  ggplot(aes(x = at_least_basic_water_source)) +
+  geom_histogram(color = "white")
+
+life_exp_pred_2009 %>%
+  ggplot(aes(at_least_basic_water_source, lnlife_exp_2009)) +
+  geom_point() +
+  ggtitle("Life Expectancy vs At Least Basic Water Source")
+
+model_17 <- lm(data = life_exp_pred_2009, lnlife_exp_2009 ~ at_least_basic_water_source)
+get_regression_table(model_17)
+
+points <- get_regression_points(model_17)
+glimpse(points)
+
+points %>%
+  ggplot(aes(x = residual)) +
+  geom_histogram(color = "white")
+
+points %>%
+  ggplot(aes(x = lnlife_exp_2009_hat, y = residual)) +
+  geom_point()
+```
+
+#### Life Expectancy vs At Least Basic Water Source with log
+
+```{r}
+life_exp_pred_2009 %>%
+  ggplot(aes(x = lnlife_exp_2009)) +
+  geom_histogram(color = "white")
+
+life_exp_pred_2009 %>%
+  ggplot(aes(x = lnat_least_basic_water_source)) +
+  geom_histogram(color = "white")
+
+life_exp_pred_2009 %>%
+  ggplot(aes(lnat_least_basic_water_source, lnlife_exp_2009)) +
+  geom_point() +
+  ggtitle("Log Life Expectancy vs Log At Least Basic Water Source")
+
+model_18 <- lm(data = life_exp_pred_2009, lnlife_exp_2009 ~ lnat_least_basic_water_source)
+get_regression_table(model_18)
+
+points <- get_regression_points(model_18)
+glimpse(points)
+
+points %>%
+  ggplot(aes(x = residual)) +
+  geom_histogram(color = "white")
+
+points %>%
+  ggplot(aes(x = lnlife_exp_2009_hat, y = residual)) +
+  geom_point()
+```
+#### p value not significant without log for Murders but significant with log and there is no clear linear relationship after log transformation.
+
+#### Life Expectancy vs Murders without log
+
+```{r}
+life_exp_pred_2009 %>%
+  ggplot(aes(x = life_expectancy)) +
+  geom_histogram(color = "white")
+
+life_exp_pred_2009 %>%
+  ggplot(aes(x = murders)) +
+  geom_histogram(color = "white")
+
+life_exp_pred_2009 %>%
+  ggplot(aes(murders, life_expectancy)) +
+  geom_point() +
+  ggtitle("Life Expectancy vs Murders")
+
+model_19 <- lm(data = life_exp_pred_2009, life_expectancy ~ murders)
+get_regression_table(model_19)
+
+points <- get_regression_points(model_19)
+glimpse(points)
+
+points %>%
+  ggplot(aes(x = residual)) +
+  geom_histogram(color = "white")
+
+points %>%
+  ggplot(aes(x = life_expectancy_hat, y = residual)) +
+  geom_point()
+```
+
+#### Life Expectancy vs Murders with log
+
+```{r}
+life_exp_pred_2009 %>%
+  ggplot(aes(x = lnlife_exp_2009)) +
+  geom_histogram(color = "white")
+
+life_exp_pred_2009 %>%
+  ggplot(aes(x = lnmurders)) +
+  geom_histogram(color = "white")
+
+life_exp_pred_2009 %>%
+  ggplot(aes(lnmurders, lnlife_exp_2009)) +
+  geom_point() +
+  ggtitle("Log Life Expectancy vs Log Murders")
+
+model_20 <- lm(data = life_exp_pred_2009, lnlife_exp_2009 ~ lnmurders)
+get_regression_table(model_20)
+
+points <- get_regression_points(model_20)
+glimpse(points)
+
+points %>%
+  ggplot(aes(x = residual)) +
+  geom_histogram(color = "white")
+
+points %>%
+  ggplot(aes(x = lnlife_exp_2009_hat, y = residual)) +
+  geom_point()
+```
+#### Model 1 on all Continuous variables
+
+```{r}
+life_exp_model1 <- lm(data=life_exp_pred_2009, lnlife_exp_2009 ~ lnincome + lnbabies_per_woman + lnchild_mortality + lnpopulation + lnco2_emissions_per_person + lngdp_per_capita + lntotal_health_spending_per_person + lnpopulation_density +  lnat_least_basic_water_source + lnmurders)
+get_regression_table(life_exp_model1)
+get_regression_summaries(life_exp_model1)
+
+points<-get_regression_points(life_exp_model1)
+points
+ggplot(data=points, aes(x=residual)) + geom_histogram(color="white")
+ggplot(data=points, aes(x=lnlife_exp_2009_hat, y=residual)) + geom_point()
+
+```
+
+#### Model 2(All variables that are significant and have a linear relationship with life expectancy): lnincome,lnbabies_per_woman,lnchild_mortality,lnco2_emissions_per_person, lngdp_per_capita,lntotal_health_spending_per_person
+
+```{r}
+life_exp_model2 <- lm(data=life_exp_pred_2009, lnlife_exp_2009 ~ lnincome + lnbabies_per_woman + lnchild_mortality  + lnco2_emissions_per_person + lngdp_per_capita + lntotal_health_spending_per_person)
+get_regression_table(life_exp_model2)
+get_regression_summaries(life_exp_model2)
+
+points<-get_regression_points(life_exp_model2)
+points
+ggplot(data=points, aes(x=residual)) + geom_histogram(color="white")
+ggplot(data=points, aes(x=lnlife_exp_2009_hat, y=residual)) + geom_point()
+```
+
+#### Model 3: Dropping babies_per_woman as it is highly correlated with income and child_mortality
+
+
+```{r}
+life_exp_model3 <- lm(data=life_exp_pred_2009, lnlife_exp_2009 ~ lnincome  + lnchild_mortality  + lnco2_emissions_per_person)
+get_regression_table(life_exp_model3)
+get_regression_summaries(life_exp_model3)
+
+points<-get_regression_points(life_exp_model3)
+points
+ggplot(data=points, aes(x=residual)) + geom_histogram(color="white")
+ggplot(data=points, aes(x=lnlife_exp_2009_hat, y=residual)) + geom_point()
+```
+
+#### Model 4: Using only discrete variables
+
+```{r}
+life_exp_model4 <- lm(data=life_exp_pred_2009, lnlife_exp_2009 ~ income_level  + two_babies_per_women)
+get_regression_table(life_exp_model4)
+get_regression_summaries(life_exp_model4)
+
+points<-get_regression_points(life_exp_model4)
+points
+ggplot(data=points, aes(x=residual)) + geom_histogram(color="white")
+ggplot(data=points, aes(x=lnlife_exp_2009_hat, y=residual)) + geom_point()
+```
+
+#### Combining discrete and continuous variables and dropping CO2 emissions per person
+#### All p values are significant and adjusted r squared is 0.732
+
+```{r}
+life_exp_model5 <- lm(data=life_exp_pred_2009, lnlife_exp_2009 ~ lnincome  + lnchild_mortality  + income_level  + two_babies_per_women)
+get_regression_table(life_exp_model5)
+get_regression_summaries(life_exp_model5)
+AIC(life_exp_model5)
+BIC(life_exp_model5)
+
+points<-get_regression_points(life_exp_model5)
+points
+ggplot(data=points, aes(x=residual)) + geom_histogram(color="white")
+ggplot(data=points, aes(x=lnlife_exp_2009_hat, y=residual)) + geom_point()
+
+
+life_exp_pred <- predict(life_exp_model5, newdata=data.frame(lnincome=log(900), lnchild_mortality=log(80), income_level=1, two_babies_per_women=0, type="response"))
+exp(life_exp_pred)
+
+
+```
+
+#### Model using interaction terms
+```{r}
+life_exp_model6 <- lm(data=life_exp_pred_2009, lnlife_exp_2009 ~ lnincome  + lnchild_mortality + income_level  + two_babies_per_women + lnincome * income_level + lnincome * two_babies_per_women + lnchild_mortality * income_level + lnchild_mortality * two_babies_per_women + lnincome * lnchild_mortality)
+get_regression_table(life_exp_model6)
+get_regression_summaries(life_exp_model6)
+AIC(life_exp_model6)
+BIC(life_exp_model6)
+
+points<-get_regression_points(life_exp_model6)
+points
+ggplot(data=points, aes(x=residual)) + geom_histogram(color="white")
+ggplot(data=points, aes(x=lnlife_exp_2009_hat, y=residual)) + geom_point()
+
+
+life_exp_pred <- predict(life_exp_model6, newdata=data.frame(lnincome=log(900), lnchild_mortality=log(80), income_level=1, two_babies_per_women=0, type="response"))
+exp(life_exp_pred)
+```
+
+#### Final model dropping insignificant terms
+
+
+```{r}
+life_exp_model7 <- lm(data=life_exp_pred_2009, lnlife_exp_2009 ~ lnincome  + lnchild_mortality + lnincome  * lnchild_mortality)
+get_regression_table(life_exp_model7)
+get_regression_summaries(life_exp_model7)
+AIC(life_exp_model7)
+BIC(life_exp_model7)
+
+points<-get_regression_points(life_exp_model7)
+points
+ggplot(data=points, aes(x=residual)) + geom_histogram(color="white")
+ggplot(data=points, aes(x=lnlife_exp_2009_hat, y=residual)) + geom_point()
+
+
+life_exp_pred <- predict(life_exp_model7, newdata=data.frame(lnincome=log(900), lnchild_mortality=log(80), type="response"))
+exp(life_exp_pred)
+
+life_exp_pred <- predict(life_exp_model7, newdata=data.frame(lnincome=log(90000), lnchild_mortality=log(4), type="response"))
+exp(life_exp_pred)
+
+```
+
+```{r}
+modelSSE <- function(x) {
+  res <- list()
+  for(i in 1:100) {
+    spl = sample.split(life_exp_pred_2009$lnlife_exp_2009, SplitRatio = 0.7)
+    train = subset(life_exp_pred_2009, spl == TRUE)
+    test = subset(life_exp_pred_2009, spl == FALSE)
+    test$decision <- rep(0, nrow(test))
+    test$decision <- exp(predict(x, newdata = test))
+    res[length(res) + 1] <- sum((test$decision - test$life_expectancy)^2)
+  }
+  res
+}
+list <- unlist(modelSSE(life_exp_model7))
+mean(list)
+sd(list)
+```
+
