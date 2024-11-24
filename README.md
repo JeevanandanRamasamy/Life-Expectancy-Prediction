@@ -1,6 +1,6 @@
 # Life Expectancy Prediction
 
-This project focuses on building a series of regression models to predict life expectancy using various socio-economic and health-related variables. The models include both continuous and discrete predictors, with transformations applied where necessary, to account for skewness or non-linearity in the data. Below is a step-by-step guide to the process, including data exploration, model development, and evaluation.
+This project develops a series of regression models to predict the average life expectancy of countries in 2009, using socio-economic and health-related variables. It incorporates both continuous and discrete predictors, applying transformations as needed to address skewness and non-linearity in the data. The following guide outlines the process, from data exploration to model development and evaluation.
 
 ## Dataset Variables
 
