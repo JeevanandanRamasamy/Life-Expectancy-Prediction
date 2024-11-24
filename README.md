@@ -63,3 +63,14 @@ These correlations suggest that some variables may be collinear, which could aff
 ## Best Model
 
 The final model in this analysis, `life_exp_model7`, is a linear regression model designed to predict life expectancy (in log-transformed form) based on two key predictors: **income** (log-transformed income per capita) and **child mortality** (log-transformed child mortality rate). Additionally, it includes an interaction term between **income** and **child mortality**, which allows the model to capture how the effect of income on life expectancy changes depending on the level of child mortality.
+
+---
+
+## R Packages Needed
+
+To run the models and analysis in this project, the following R packages are required:
+1. `tidyverse`: This is a collection of R packages that work together to simplify data manipulation, visualization, and analysis. It includes packages like `ggplot2` (for visualization), `dplyr` (for data manipulation), `tidyr` (for tidying data), and `readr` (for reading data). These packages are used extensively throughout the code for tasks such as creating plots, filtering data, and summarizing results.
+2. `gapminder`: This package provides the gapminder dataset, which contains information on global life expectancy, GDP, and population for various countries over time. While not directly used in all parts of the code, it could be helpful for illustrative purposes or additional data analysis in similar contexts.
+3. `countrycode`: This package helps in converting country names or codes between different standards (e.g., ISO codes to country names). It could be useful for mapping country-level data in your analysis if the dataset includes country identifiers that need conversion.
+4. `moderndive`: This package is designed to streamline the analysis and presentation of linear regression models. It provides functions for summarizing regression output in a more readable format and for performing model diagnostics, making it easier to interpret results. Functions like `get_regression_table()` and `get_regression_summaries()` might come from this package or have similar functionality.
+5. `caTools`: This package provides tools for data splitting, which is useful when working with machine learning models or when you want to divide your data into training and test sets. The `sample.split()` function is used to split the data for cross-validation or model evaluation.
